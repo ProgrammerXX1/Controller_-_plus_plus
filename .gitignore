@@ -1,0 +1,20 @@
+# большие данные — не лезут в git (GitHub лимит 100 MB на файл)
+data/
+
+# локальное состояние Claude
+.claude/
+
+# собранные бинарники
+qs
+interop
+race_demo
+*.o
+*.obj
+*.exe
+
+# дампы и временные файлы
+*.log
+*.tmp
+core
+core.*
+perf.data*
