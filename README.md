@@ -29,12 +29,13 @@ isolcpus=0,1,8,9  nohz_full=0,1,8,9  rcu_nocbs=0,1,8,9
 ```
 Изолированы две полные физические пары: CPU0↔CPU8 и CPU1↔CPU9. На «общих» 12 логических ядрах (2-7, 10-15) живёт вся остальная система. Ни один user‑процесс не попадёт на 0,1,8,9 без явного `taskset` или `AllowedCPUs`.
 
-### Слой 2. RAM (через cgroup v2, runtime — в `run.sh`)
+### Слой 2. RAM + Disk (через cgroup v2, runtime — в `run.sh`)
 Для бенчей задаётся транзитный systemd scope с:
 - `MemoryMax=4G` — hard cap на RSS; превышение → OOM kill
 - `MemorySwapMax=0` — swap запрещён
 - `AllowedCPUs=0,1,8,9` — дополнительная фиксация через cgroup
-- `IOWeight=100` — приоритет на диске
+- `IOReadBandwidthMax=/dev/nvme0n1 500M` — 10% от NVMe Gen4 (~5 GB/s)
+- `IOWriteBandwidthMax=/dev/nvme0n1 440M` — 10% от NVMe Gen4 (~4.4 GB/s)
 
 Внутри программы дополнительно:
 - `mlockall(MCL_CURRENT | MCL_FUTURE)` — страницы не свопаются
