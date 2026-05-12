@@ -1,5 +1,6 @@
 // Quicksort на 5 уровнях абстракции
-// Компиляция: g++ -O3 -std=c++20 -o qs quicksort_levels.cpp
+// Компиляция: g++ -O3 -std=c++20 -march=native -o qs quicksort_levels.cpp
+// Запуск:     ./run.sh           (CPU 0,1,8,9 + RAM cap 4G + swap off)
 
 #include <algorithm>
 #include <chrono>
@@ -7,6 +8,10 @@
 #include <cstring>
 #include <random>
 #include <vector>
+
+#include <sys/mman.h>   // mlockall, madvise
+#include <sys/resource.h>
+#include <unistd.h>
 
 using Clock = std::chrono::steady_clock;
 
@@ -193,7 +198,20 @@ double bench(const char* name, F f, const std::vector<int>& src, int runs = 5) {
     return best_ms;
 }
 
+// Запрещаем ядру свопать наши страницы и просим THP для крупных аллокаций.
+// Если mlockall падает (нет CAP_IPC_LOCK или ulimit -l маленький) — это не фатально,
+// просто бенч теряет одну гарантию.
+static void lock_memory() {
+    if (mlockall(MCL_CURRENT | MCL_FUTURE) == 0) {
+        std::printf("[mem] mlockall OK — страницы не свопаются\n");
+    } else {
+        std::printf("[mem] mlockall FAILED (нужен CAP_IPC_LOCK или ulimit -l). Продолжаем без lock.\n");
+    }
+}
+
 int main() {
+    lock_memory();
+
     const size_t N = 5'000'000;
     std::printf("Sorting %zu random ints, best of 5 runs\n", N);
     std::printf("Compiled: %s %s, -O%d\n\n",
@@ -214,6 +232,9 @@ int main() {
     std::mt19937 rng(42);
     std::uniform_int_distribution<int> dist(0, 1'000'000'000);
     std::vector<int> src(N);
+    // Просим ядро использовать huge pages (2 MB) для этого диапазона.
+    // Действует только если transparent_hugepage=madvise или резерв huge pages включён.
+    madvise(src.data(), N * sizeof(int), MADV_HUGEPAGE);
     for (auto& x : src) x = dist(rng);
 
     bench("1. std::sort (STL)",      level1_std_sort,      src);
